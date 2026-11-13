@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trick Decoder</title>
+<style>
+:root{--bg:#faf7f2;--card:#fff;--text:#1d1a24;--muted:#6b6577;--accent:#6d28d9;--line:#e4ddd2;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14111c;--card:#1e1a2b;--text:#f1edf8;--muted:#a59fb5;--accent:#a78bfa;--line:#332d45;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14111c;--card:#1e1a2b;--text:#f1edf8;--muted:#a59fb5;--accent:#a78bfa;--line:#332d45;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Georgia,"Times New Roman",serif}
+main{max-width:720px;margin:0 auto;padding:32px 20px 56px}
+h1{font-size:2.2rem;margin:0 0 4px;letter-spacing:-.02em}
+h1 span{color:var(--accent)}
+p.sub{color:var(--muted);margin:0 0 24px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px}
+.drop{display:block;border:2px dashed var(--line);border-radius:12px;padding:32px 16px;text-align:center;cursor:pointer;color:var(--muted)}
+.drop:hover{border-color:var(--accent)}
+input[type=file]{display:none}
+video{width:100%;max-height:360px;border-radius:10px;background:#000;display:none;margin-bottom:12px}
+textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg);color:var(--text);font:inherit;resize:vertical;min-height:60px}
+button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:12px 20px;font:inherit;font-weight:bold;cursor:pointer;margin-top:12px;width:100%}
+button:disabled{opacity:.5;cursor:default}
+#frames{display:flex;gap:6px;overflow-x:auto;margin-top:12px}
+#frames img{height:56px;border-radius:6px;border:1px solid var(--line)}
+#out{white-space:pre-wrap;display:none}
+#status{color:var(--muted);font-size:.9rem;margin-top:8px}
+small{color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<h1>Trick <span>Decoder</span></h1>
+<p class="sub">Drop in a video of a magic trick and Claude will study the frames and tell you how it was probably done.</p>
+
+<div class="card">
+<label class="drop" id="drop">Tap to choose a video<br><small>MP4, MOV or WebM · short clips work best</small>
+<input type="file" id="file" accept="video/*"></label>
+<video id="vid" controls muted playsinline></video>
+<div id="frames"></div>
+<textarea id="hint" placeholder="Optional: describe the trick or what you noticed (e.g. “the coin vanished at the end”)"></textarea>
+<button id="go" disabled>Reveal the secret</button>
+<div id="status"></div>
+</div>
+
+<div class="card" id="out"></div>
+<p><small>Claude only sees still frames (no sound), so this is an educated guess, not a confession. Cuts, edits and camera tricks can fool it too.</small></p>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let blobs=[], sample=null;
+const status=t=>$('status').textContent=t||'';
+
+(async()=>{
+  try{ sample=await claude.use("sample"); }catch(e){ sample=null; }
+  if(!sample) status('AI analysis isn’t available in this view.');
+})();
+
+function strip(t){return t.replace(/\n?\s*CONFIDENCE:[\s\S]*$/i,'').trim();}
+function addSearch(q,conf){
+  const old=document.getElementById('srch'); if(old) old.remove();
+  const d=document.createElement('div'); d.id='srch'; d.style.cssText='margin-top:16px;padding-top:14px;border-top:1px solid var(--line);white-space:normal';
+  const p=document.createElement('div'); p.style.cssText='color:var(--muted);font-size:.9rem;margin-bottom:8px';
+  p.textContent=conf==='high'?'Want to double-check? Search the web:':'Claude isn’t sure about this one. Search the web for the real answer:';
+  d.appendChild(p);
+  const links=[['Google','https://www.google.com/search?q='],['YouTube','https://www.youtube.com/results?search_query='],['Reddit','https://www.google.com/search?q=site%3Areddit.com%2Fr%2Fmagictricks+']];
+  for(const [n,u] of links){const a=document.createElement('a');a.href=u+encodeURIComponent(q);a.target='_blank';a.rel='noopener noreferrer';a.textContent=n+' ↗';a.style.cssText='display:inline-block;margin:0 8px 8px 0;padding:8px 14px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);text-decoration:none;font-size:.9rem';d.appendChild(a);}
+  const s=document.createElement('small');s.textContent='Query: “'+q+'”';d.appendChild(s);
+  $('out').appendChild(d);
+}
+function seek(v,t){return new Promise(r=>{v.onseeked=()=>r();v.currentTime=t;});}
+
+$('file').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  blobs=[]; $('frames').innerHTML=''; $('out').style.display='none'; $('go').disabled=true;
+  const v=$('vid'); v.src=URL.createObjectURL(f); v.style.display='block';
+  $('drop').style.display='none';
+  status('Extracting frames…');
+  try{
+    await new Promise((res,rej)=>{v.onloadedmetadata=res;v.onerror=rej;});
+    const d=v.duration, n=Math.min(12,Math.max(6,Math.ceil(d*1.5)));
+    const c=document.createElement('canvas'), w=Math.min(768,v.videoWidth);
+    c.width=w; c.height=Math.round(v.videoHeight*w/v.videoWidth);
+    const ctx=c.getContext('2d');
+    for(let i=0;i<n;i++){
+      await seek(v,Math.min(d-0.05,(i+0.5)*d/n));
+      ctx.drawImage(v,0,0,c.width,c.height);
+      const b=await new Promise(r=>c.toBlob(r,'image/jpeg',0.8));
+      blobs.push(b);
+      const im=new Image(); im.src=URL.createObjectURL(b); $('frames').appendChild(im);
+    }
+    v.currentTime=0;
+    status(n+' frames ready.');
+    $('go').disabled=!sample;
+  }catch(err){ status('Couldn’t read that video. Try an MP4 or WebM.'); }
+});
+
+$('go').addEventListener('click',async()=>{
+  if(!sample||!blobs.length) return;
+  $('go').disabled=true; status('Claude is studying the footage…');
+  const out=$('out'); out.style.display='block'; out.textContent='Thinking…';
+  const hint=$('hint').value.trim();
+  const prompt=`These ${blobs.length} images are frames, in chronological order, evenly sampled from a short video of a magic trick.
+Explain how the trick was most likely done. Structure your answer as:
+1. What the trick appears to be (one or two sentences)
+2. The likely method (the secret move, gimmick, or principle, naming the technique if it has a name)
+3. Clues in the frames that support this (refer to frame numbers)
+4. Other possibilities, with your confidence level
+If the frames don’t show a magic trick, say so. Be honest about uncertainty. Use plain text, no markdown symbols.
+Finish with exactly two final lines:
+CONFIDENCE: high, medium or low (low if you can’t really tell how it was done)
+SEARCH: a short web search query most likely to find the explanation (name the trick if you recognise it, otherwise describe the effect, e.g. “coin vanishes from hand magic trick revealed”)${hint?`\nThe viewer says: ${hint}`:''}`;
+  try{
+    const lim=await sample.limits();
+    if(!lim.images) throw {message:'Image analysis isn’t enabled here.'};
+    const r=await sample(prompt,{images:blobs,modelTier:'complex',cache:false,onText:({text})=>{out.textContent=strip(text);}});
+    out.textContent=strip(r.text);
+    const conf=((r.text.match(/CONFIDENCE:\s*(\w+)/i)||[])[1]||'low').toLowerCase();
+    const q=((r.text.match(/SEARCH:\s*(.+)/i)||[])[1]||'magic trick revealed '+hint).trim();
+    addSearch(q,conf);
+    status('');
+  }catch(e){
+    if(e&&e.text) out.textContent=strip(e.text);
+    else if(e&&e.code==='not_granted') out.textContent='Permission was declined, so I can’t analyze the video.';
+    else if(!out.textContent||out.textContent==='Thinking…') out.textContent='Something went wrong: '+(e&&e.message||'unknown error');
+    status('');
+  }
+  $('go').disabled=false;
+});
+</script>
+</body>
+</html>
