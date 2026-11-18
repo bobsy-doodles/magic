@@ -1,0 +1,90 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Up My Sleeve</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700;900&display=swap">
+<link rel="stylesheet" href="style.css">
+
+<div class="wrap">
+  <header class="top">
+    <p class="eyebrow">Up My Sleeve</p>
+    <h1>Learn the secret behind the trick.</h1>
+    <p class="lede">Upload a video of someone doing a trick and get a best guess at how it is done. Or pick a trick from the library and learn it step by step. Everything here needs nothing fancy: cards, a coin, a paper clip or just your head.</p>
+  </header>
+
+  <section class="vid" aria-label="Explain a trick from a video">
+    <div>
+      <h2>Got a video of a trick?</h2>
+      <p class="small">Upload it and Claude studies frames from the video, works out the likely secret, and writes it up like the tricks below. Your video stays in this browser tab. Only still frames are sent.</p>
+    </div>
+    <div class="vdrop" id="vdrop">
+      <button class="btn primary" id="vPick" type="button">Choose a video</button>
+      <input class="sr" id="vFile" type="file" accept="video/*" tabindex="-1" aria-label="Video of a magic trick">
+      <span class="small">or drop one here. Short clips of just the trick work best.</span>
+    </div>
+    <div class="vwork" id="vWork" hidden>
+      <video id="vPlayer" controls playsinline muted preload="auto"></video>
+      <div class="frames" id="vFrames"></div>
+      <label class="field" for="vNote"><span>Anything Claude should know? (optional)</span><input id="vNote" type="text" maxlength="300" placeholder="For example: a card trick, he picks a card around 0:10" autocomplete="off"></label>
+      <div class="acts">
+        <button class="btn primary" id="vGo" type="button" disabled>Explain how it is done</button>
+        <button class="btn" id="vStop" type="button" hidden>Stop</button>
+        <button class="btn" id="vSheet" type="button" disabled>Save the frames as a picture</button>
+      </div>
+      <p class="small" id="vMsg" role="status"></p>
+    </div>
+  </section>
+
+  <section class="tools" aria-label="Find a trick">
+    <div class="row">
+      <label class="field" for="q"><span>Search</span><input id="q" type="search" placeholder="Try &quot;coin&quot; or &quot;math&quot;" autocomplete="off"></label>
+      <label class="field" for="lvl"><span>Difficulty</span>
+        <select id="lvl"><option value="all">Any</option><option value="1">Easy</option><option value="2">Medium</option></select>
+      </label>
+    </div>
+    <div class="chips" id="types" role="group" aria-label="Kind of trick"></div>
+    <div class="have">
+      <span class="lab">What do you have with you?</span>
+      <div class="chips" id="have" role="group" aria-label="Things you have"></div>
+      <span class="small" id="haveHint">Pick what is in your pocket and only tricks you can do right now will show.</span>
+    </div>
+  </section>
+
+  <p class="count" id="count" role="status"></p>
+  <main class="grid" id="grid"></main>
+
+  <section class="rules" aria-label="Before you start">
+    <h2>Five rules every magician follows</h2>
+    <ol>
+      <li><strong>Practice alone first.</strong> Do each move in a mirror until you do not have to think about it.</li>
+      <li><strong>Never say what is coming.</strong> If they know the ending, they watch for the trick.</li>
+      <li><strong>Do not repeat a trick for the same people.</strong> The second time they look for the secret.</li>
+      <li><strong>Look where you want them to look.</strong> People follow your eyes. That is called misdirection.</li>
+      <li><strong>Keep the secret.</strong> Teach it only to someone who wants to learn magic, not to people who just watched.</li>
+    </ol>
+  </section>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="sTitle">
+    <button class="x" id="sClose" type="button" aria-label="Close">&times;</button>
+    <div id="sBody"></div>
+  </div>
+</div>
+
+<div class="perform" id="perform" hidden>
+  <div class="pbar"><div class="pfill" id="pfill"></div></div>
+  <div class="ptop"><span id="pName"></span><button class="btn sm" id="pExit" type="button">Exit</button></div>
+  <div class="pmain"><p class="pkick" id="pKick"></p><p class="ptext" id="pText"></p></div>
+  <div class="pnav">
+    <button class="btn" id="pPrev" type="button">Back</button>
+    <span class="pcount" id="pCount"></span>
+    <button class="btn primary" id="pNext" type="button">Next</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="app.js"></script>
+
+</body></html>
